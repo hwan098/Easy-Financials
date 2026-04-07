@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "Open DART 공시 분석 웹 애플리케이션",
   "main": "server/app.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server/app.js",
+    "build": "node server/db/initDb.js",
     "dev": "nodemon server/app.js",
     "init-db": "node server/db/initDb.js"
   },

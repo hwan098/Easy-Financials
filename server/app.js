@@ -5,18 +5,20 @@ const path = require('path');
 require('dotenv').config({ override: true });
 
 const db = require('./db/database');
+const { ensureDatabase } = require('./db/initDb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // 서버 시작 함수
 async function startServer() {
-    // 데이터베이스 초기화
+    // DB 없으면 DART에서 자동 다운로드 & 초기화
+    await ensureDatabase();
     await db.initDb();
     console.log('데이터베이스 연결 완료');
     
