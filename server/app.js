@@ -13,7 +13,6 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '../public')));
 
 // 서버 시작 함수
 async function startServer() {
@@ -21,8 +20,8 @@ async function startServer() {
     await ensureDatabase();
     await db.initDb();
     console.log('데이터베이스 연결 완료');
-    
-    // Routes
+
+    // API Routes (정적 파일보다 먼저 등록)
     const companyRoutes = require('./routes/company');
     const disclosureRoutes = require('./routes/disclosure');
     const financialRoutes = require('./routes/financial');
@@ -33,8 +32,11 @@ async function startServer() {
     app.use('/api/financial', financialRoutes);
     app.use('/api/ai', aiRoutes);
 
-    // Serve index.html for root
-    app.get('/', (req, res) => {
+    // 정적 파일 (API 라우트 이후에 등록)
+    app.use(express.static(path.join(__dirname, '../public')));
+
+    // SPA fallback
+    app.get('*', (req, res) => {
         res.sendFile(path.join(__dirname, '../public/index.html'));
     });
 

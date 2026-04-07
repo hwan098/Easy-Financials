@@ -245,6 +245,13 @@ async function showAISummary(rceptNo, reportName) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ rceptNo, title: reportName })
         });
+
+        if (!res.ok) {
+            let errMsg = `서버 오류 (${res.status})`;
+            try { const d = await res.json(); errMsg = d.error || errMsg; } catch {}
+            throw new Error(errMsg);
+        }
+
         const data = await res.json();
 
         if (data.error) {
@@ -598,6 +605,13 @@ async function showFinancialAIAnalysis() {
                 companyName: state.selectedCompany.corp_name
             })
         });
+
+        if (!res.ok) {
+            let errMsg = `서버 오류 (${res.status})`;
+            try { const d = await res.json(); errMsg = d.error || errMsg; } catch {}
+            throw new Error(errMsg);
+        }
+
         const result = await res.json();
 
         if (result.error) {
