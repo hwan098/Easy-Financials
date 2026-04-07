@@ -586,7 +586,7 @@ async function showFinancialAIAnalysis() {
         <div class="text-center py-5">
             <div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div>
             <p class="mt-3 fw-semibold fs-5">AI가 재무제표를 분석하고 있습니다...</p>
-            <p class="text-muted">누구나 이해할 수 있게 쉽게 풀어서 설명해드립니다.</p>
+            <p class="text-muted">잠시만 기다려주세요.</p>
         </div>`;
     modal.show();
 
@@ -623,7 +623,7 @@ async function showFinancialAIAnalysis() {
         contentEl.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle me-2"></i>분석 실패: ${e.message}</div>`;
     } finally {
         elements.aiAnalyzeBtn.disabled = false;
-        elements.aiAnalyzeBtn.innerHTML = '<i class="bi bi-robot me-2"></i>AI 재무 분석 받기<small class="d-block mt-1 opacity-75">Gemini가 누구나 이해할 수 있게 분석해드립니다</small>';
+        elements.aiAnalyzeBtn.innerHTML = '<i class="bi bi-robot me-2"></i>AI 재무 분석하기';
     }
 }
 
@@ -743,47 +743,86 @@ function escapeHtml(text) {
 }
 
 function formatMarkdown(text) {
+    const lines = text.split('\n');
+    const sections = [];
+    let currentSection = null;
+    let buffer = [];
+
+    function flushBuffer() {
+        if (!buffer.length) return '';
+        const raw = buffer.join('\n');
+        buffer = [];
+        return convertInlineMarkdown(raw);
+    }
+
+    for (const line of lines) {
+        const h2Match = line.match(/^## (.+)/);
+        if (h2Match) {
+            if (currentSection) {
+                currentSection.body = flushBuffer();
+                sections.push(currentSection);
+            }
+            currentSection = { title: h2Match[1].replace(/[📊💰🏦📈⚠️🔍✅❌]/g, '').trim(), body: '' };
+            continue;
+        }
+        buffer.push(line);
+    }
+    if (currentSection) {
+        currentSection.body = flushBuffer();
+        sections.push(currentSection);
+    } else {
+        return convertInlineMarkdown(text);
+    }
+
+    let html = '';
+    sections.forEach((sec, i) => {
+        const isSummary = i === 0 && /요약/.test(sec.title);
+        if (isSummary) {
+            html += `<div class="ai-summary-block"><h2 class="ai-h2">${highlightTerms(sec.title)}</h2>${sec.body}</div>`;
+        } else {
+            html += `<div class="ai-section"><h2 class="ai-h2">${highlightTerms(sec.title)}</h2>${sec.body}</div>`;
+        }
+    });
+    return html;
+}
+
+function convertInlineMarkdown(text) {
     let html = text
-        // 헤더
         .replace(/^### (.*$)/gm, '<h3 class="ai-h3">$1</h3>')
-        .replace(/^## (.*$)/gm, '<h2 class="ai-h2">$1</h2>')
-        // 볼드
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // 리스트 (연속 - 항목을 <ul>로 묶기)
-        .replace(/(?:^|\n)- (.*?)(?=\n(?!- )|\n*$)/gs, (match) => {
-            const items = match.trim().split('\n').map(line => {
-                const content = line.replace(/^- /, '');
-                return `<li>${content}</li>`;
-            }).join('');
-            return `<ul class="ai-list">${items}</ul>`;
-        })
-        // 숫자 리스트
-        .replace(/(?:^|\n)\d+\. (.*?)(?=\n(?!\d+\. )|\n*$)/gs, (match) => {
-            const items = match.trim().split('\n').map(line => {
-                const content = line.replace(/^\d+\. /, '');
-                return `<li>${content}</li>`;
-            }).join('');
-            return `<ol class="ai-list">${items}</ol>`;
-        })
-        // 수평선
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    html = html.replace(/(?:^|\n)- (.*?)(?=\n(?!- )|\n*$)/gs, (match) => {
+        const items = match.trim().split('\n').map(line =>
+            `<li>${line.replace(/^- /, '')}</li>`
+        ).join('');
+        return `<ul class="ai-list">${items}</ul>`;
+    });
+
+    html = html.replace(/(?:^|\n)\d+\. (.*?)(?=\n(?!\d+\. )|\n*$)/gs, (match) => {
+        const items = match.trim().split('\n').map(line =>
+            `<li>${line.replace(/^\d+\. /, '')}</li>`
+        ).join('');
+        return `<ol class="ai-list">${items}</ol>`;
+    });
+
+    html = html
         .replace(/^---+$/gm, '<hr class="ai-divider">')
-        // 줄바꿈
-        .replace(/\n{2,}/g, '<br><br>')
+        .replace(/\n{2,}/g, '<br>')
         .replace(/\n/g, '<br>');
 
-    // 금액/퍼센트 하이라이트
+    return highlightTerms(html);
+}
+
+function highlightTerms(html) {
     html = html.replace(/([\d,]+(?:\.\d+)?)\s*(조|억|만|원|%)/g,
         '<span class="ai-num">$1$2</span>');
 
-    // 긍정 키워드 하이라이트
-    html = html.replace(/(긍정적|성장|증가|상승|개선|흑자|호실적|양호|건전|안정적|튼튼|좋[은다])/g,
+    html = html.replace(/(긍정적|성장세|성장|증가|상승|개선|흑자|양호|건전|안정적)/g,
         '<span class="ai-positive">$1</span>');
 
-    // 부정/주의 키워드 하이라이트
     html = html.replace(/(부정적|감소|하락|악화|적자|위험|리스크|주의|우려|부담|취약)/g,
         '<span class="ai-negative">$1</span>');
 
-    // 핵심 금융 용어 태그
     html = html.replace(/(매출액|영업이익|당기순이익|순이익|영업이익률|순이익률|부채비율|자산총계|부채총계|자본총계|ROE|ROA|PER|PBR|EPS|BPS)/g,
         '<span class="ai-term">$1</span>');
 
